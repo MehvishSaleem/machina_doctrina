@@ -3,8 +3,8 @@ import os
 
 def read_and_select(cols_to_drop = []):
 
-    train_df = pd.read_pickle(os.path.join('data', 'train_df.pkl'))
-    test_df = pd.read_pickle(os.path.join('data', 'test_df.pkl'))
+    train_df = pd.read_csv(os.path.join('data', 'train_df.csv'))
+    test_df = pd.read_csv(os.path.join('data', 'test_df.csv'))
 
     print(train_df.columns.values)
 
@@ -16,4 +16,4 @@ def read_and_select(cols_to_drop = []):
     print(test_df.head())
 
 if __name__ == '__main__':
-    read_and_select(['text'])
+    read_and_select(['text', 'id'])

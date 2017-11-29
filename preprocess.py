@@ -4,7 +4,6 @@ import string
 
 import numpy as np
 from nltk.stem import WordNetLemmatizer
-
 from sklearn.model_selection import train_test_split
 
 stop_word_list = []
@@ -34,7 +33,8 @@ def text_processing(text):
 
     for w in text.split():
         if w != lemm.lemmatize(w):
-            print(w, "->", lemm.lemmatize(w))
+            # print(w, "->", lemm.lemmatize(w))
+            pass
     return ' '.join([lemm.lemmatize(x) for x in text.split()])
 
 def generate_count_features(df):
@@ -64,10 +64,6 @@ def preprocess(data_dir="data"):
 
     train_df = read_2_df(train_data)
     test_df = read_2_df(test_data)
-
-    # Drop ID column
-    train_df = train_df.drop("id", axis=1)
-    test_df = test_df.drop("id", axis=1)
 
     # Process Text
     train_df['processed_text'] = train_df['text'].apply(text_processing)
@@ -110,8 +106,8 @@ def preprocess(data_dir="data"):
     # Drop Author
     train_df = train_df.drop("author", axis=1)
 
-    train_df.to_pickle(os.path.join('data', 'train_df.pkl'))
-    test_df.to_pickle(os.path.join('data', 'test_df.pkl'))
+    train_df.to_csv(os.path.join('data', 'train_df.csv'), index=False)
+    test_df.to_csv(os.path.join('data', 'test_df.csv'), index=False)
 
 if __name__ == '__main__':
 
