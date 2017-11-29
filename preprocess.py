@@ -2,19 +2,22 @@ import pandas as pd
 import os
 import string
 
-import numpy as np
+from gensim.models.doc2vec import TaggedDocument, Doc2Vec
 from nltk.stem import WordNetLemmatizer
-from sklearn.model_selection import train_test_split
+from nltk import pos_tag
 
 stop_word_list = []
 lemm = WordNetLemmatizer()
 
 def read_stop_word_list(stop_words_file, data_dir="data"):
+    global stop_word_list
     stop_words_path = os.path.join(data_dir, stop_words_file)
 
     with open(stop_words_path, 'r') as f:
         for x in f:
             stop_word_list.append(x.strip())
+
+    stop_word_list = set(stop_word_list)
 
     # print(stop_word_list)
 
@@ -25,16 +28,25 @@ def read_2_df(filename):
 
 def text_processing(text):
 
-    text = ' '.join([w for w in text.lower().split() if not w in stop_word_list])
+    removed_stop = []
+
+    for w in text.lower().split():
+        if w not in stop_word_list:
+            removed_stop.append(w)
+
+    text = ' '.join(removed_stop)
+
+    ## print("\tConverted text to lowercase ...")
+    ## print("\tRemoved stop words ...")
 
     for c in string.punctuation:
         # text = text.replace(c, " "+c+" ")
         text = text.replace(c, "")
 
-    for w in text.split():
-        if w != lemm.lemmatize(w):
-            # print(w, "->", lemm.lemmatize(w))
-            pass
+    ## print("\tRemoved punctuations ...")
+
+    ## print("\tLemmatizing words ...")
+
     return ' '.join([lemm.lemmatize(x) for x in text.split()])
 
 def generate_count_features(df):
@@ -46,17 +58,59 @@ def generate_count_features(df):
     df['num_of_uppercase'] = df['text'].apply(lambda x: len([y for y in x.split() if y.isupper()]))
     df['num_of_titlecase'] = df['text'].apply(lambda x: len([y for y in x.split() if y.istitle()]))
 
+    ## print("\tGenerated simple count features ...")
+
+    # NLP based features
+    df['num_of_adjectives'] = df['text'].apply(
+        lambda x: len([y[0] for y in pos_tag(x.split()) if y[1] in ['JJ', 'JJR', 'JJS']]))
+    df['num_of_nouns'] = df['text'].apply(
+        lambda x: len([y[0] for y in pos_tag(x.split()) if y[1] in ['NN', 'NNS', 'NNP', 'NNPS']]))
+    df['num_of_verbs'] = df['text'].apply(
+        lambda x: len([y[0] for y in pos_tag(x.split()) if y[1] in ['VB', 'VBD', 'VBG', 'VBP', 'VBN', 'VBZ']]))
+
+    ## print("\tGenerated NLP Based Features ...")
+
     return df
 
-# def build_model(input_dims, embedding_dims=20, optimiser="adam"):
-#     model = Sequential()
-#     model.add(Embedding(input_dim=input_dims, output_dim=embedding_dims))
-#     model.add(GlobalAveragePooling1D())
-#     model.add(Dense(3, activation="softmax"))
-#     model.compile(loss="categorical_crossentropy",
-#                  optimizer=optimiser,
-#                  metrics=["accuracy"])
-#     return model
+def generate_Doc2Vec(train_df, test_df):
+
+    sentences = []
+
+    for item_no, line in enumerate(train_df['processed_text'].values.tolist()):
+        sentences.append(TaggedDocument(line, [item_no]))
+
+    print("Training Doc2Vec ...")
+
+    feat_vec_size = 30
+    context_window = 50
+    seed = 42
+    min_count = 1
+    alpha = 0.5
+    max_iter = 1
+
+    # BUILD MODEL
+    model = Doc2Vec(documents=sentences,
+                    alpha=alpha,  # initial learning rate
+                    seed=seed,
+                    min_count=min_count,  # ignore words with freq less than min_count
+                    window=context_window,  # the number of words before and after to be used as context
+                    size=feat_vec_size,  # is the dimensionality of the feature vector
+                    iter=max_iter)
+
+    new_train = train_df.copy()
+    new_test = test_df.copy()
+
+    colnames = ['d2v_feat_'+str(i) for i in range(feat_vec_size)]
+
+    doc2vec_train = new_train['processed_text'].apply(lambda x: model.infer_vector(x))
+    doc2vec_test = new_test['processed_text'].apply(lambda x: model.infer_vector(x))
+
+    new_train[colnames] = pd.DataFrame(doc2vec_train.values.tolist(), index=new_train.index)
+    new_test[colnames] = pd.DataFrame(doc2vec_test.values.tolist(), index=new_test.index)
+
+    colnames += ["id"]
+
+    return new_train[colnames], new_test[colnames]
 
 def preprocess(data_dir="data"):
     train_data = os.path.join(data_dir, "train.csv")
@@ -65,49 +119,45 @@ def preprocess(data_dir="data"):
     train_df = read_2_df(train_data)
     test_df = read_2_df(test_data)
 
+    print("Dataframes have been read ...\n\n")
+
     # Process Text
     train_df['processed_text'] = train_df['text'].apply(text_processing)
     test_df['processed_text'] = test_df['text'].apply(text_processing)
+
+    print("Text processing done ...\n\n")
 
     # Generate Counting Based Features
     train_df = generate_count_features(train_df)
     test_df = generate_count_features(test_df)
 
+    print("Count Based Features generated ...\n\n")
 
-    # .........
+    # Doc2Vec Features
+    d2v_train_df, d2v_test_df = generate_Doc2Vec(train_df, test_df)
 
-    # Xtrain, Xval, ytrain, yval = train_test_split(train_df["processed_text"].values, y)
-    #
-    # tokeniser = Tokenizer()
-    # tokeniser.fit_on_texts(Xtrain)
-    #
-    # def tokenise(x, tokeniser, maxlen=256):
-    #     return pad_sequences(
-    #         sequences=tokeniser.texts_to_sequences(x),
-    #         maxlen=maxlen)
-    #
-    # X_train_tokens, X_val_tokens, X_test_tokens = (tokenise(x, tokeniser)
-    #                                                for x in (Xtrain, Xval, test_df["processed_text"].values))
-    #
-    # input_dim = np.max(X_train_tokens) + 1
-    # embedding_dims = 15
-    #
-    # epochs = 50
-    # model = build_model(input_dim, embedding_dims)
-    #
-    # data = model.fit(X_train_tokens, ytrain, batch_size=16, validation_data=(X_val_tokens, yval),
-    #                  epochs=epochs, callbacks=[EarlyStopping(patience=2, monitor="val_loss")])
-
+    print("Doc2Vec Features added ...\n\n")
 
     # Convert author to one-hot encoding
     one_hot_authors = pd.get_dummies(train_df['author'])
     train_df = pd.concat([train_df, one_hot_authors], axis=1)
+
+    print("Target class (author) has been one hot encoded ...\n\n")
 
     # Drop Author
     train_df = train_df.drop("author", axis=1)
 
     train_df.to_csv(os.path.join('data', 'train_df.csv'), index=False)
     test_df.to_csv(os.path.join('data', 'test_df.csv'), index=False)
+
+    d2v_train_df.to_csv(os.path.join('data', 'd2v_train_df.csv'), index=False)
+    d2v_test_df.to_csv(os.path.join('data', 'd2v_test_df.csv'), index=False)
+
+    print(train_df.head())
+    print("\n")
+    print(test_df.head())
+
+    print("Processed dataframes saved as CSVs!")
 
 if __name__ == '__main__':
 
