@@ -31,7 +31,12 @@ def text_processing(text):
     removed_stop = []
 
     for w in text.lower().split():
-        if w not in stop_word_list:
+        dont_add = False
+        for k in stop_word_list:
+            if w == k:
+                dont_add = True
+                break
+        if not dont_add:
             removed_stop.append(w)
 
     text = ' '.join(removed_stop)
