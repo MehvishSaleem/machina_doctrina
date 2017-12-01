@@ -149,8 +149,8 @@ def preprocess(data_dir="data"):
 
     print("Target class (author) has been one hot encoded ...\n\n")
 
-    # Drop Author
-    train_df = train_df.drop("author", axis=1)
+    # # Drop Author
+    # train_df = train_df.drop("author", axis=1)
 
     train_df.to_csv(os.path.join('data', 'train_df.csv'), index=False)
     test_df.to_csv(os.path.join('data', 'test_df.csv'), index=False)
