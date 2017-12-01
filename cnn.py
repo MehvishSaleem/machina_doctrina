@@ -102,7 +102,6 @@ def main():
 							history = model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=epochs)
 							errors[lr] = history
 
-							#score = model.evaluate(X_val, y_val)
 							score = log_loss(y_val, model.predict(X_val))
 							print(score)
 							s = 'layers=' + str(l) + ', filter number =' + str(fn) + \
@@ -112,40 +111,6 @@ def main():
 	sorted_scores = OrderedDict(sorted(all_scores.items(), key=lambda x: x[1]))
 	for k, v in sorted_scores.items():
 		print ("%s: %s" % (k, v))
-
-	# # If the model is a CNN then expand the dimensions of the training data
-	# if model.name == "CNN" or model.name == "LSTM":
-	# 	X_train = np.expand_dims(X_train, axis=2)
-	# 	X_test = np.expand_dims(X_test, axis=2)
-	# print('Text train shape: ', X_train.shape)
-	# print('Text test shape: ', X_test.shape)
-
-	# model.summary()
-
-	# # Compile the model
-	# sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-	# model.compile(optimizer=sgd, loss='categorical_crossentropy')
-
-
-
-	# # Fit the model to the training data
-	# estimator = model.fit(X_train, y_train,
- #        validation_split=0.2,
- #        epochs=epochs, batch_size=128, verbose=1)
-
-
-	# score = model.evaluate(X_test, y_test)
-	# y_preds = model.predict(X_test)
-
-	# print("Log Loss", log_loss(y_test, y_preds))
-	# # Fit the model to the training data
-	# estimator = model.fit(train_vec, y_train_ohe,
- #        epochs=epochs, batch_size=128, verbose=1)
-	# predictions = model.predict(test_vec)
-	# print(predictions)
-	# print (score)
- #    #print("Training accuracy: %.2f%% / Validation accuracy: %.2f%%" % 
- #    #  (100*estimator.history, 100*estimator.history))
 
 if __name__ == "__main__":
     main()
