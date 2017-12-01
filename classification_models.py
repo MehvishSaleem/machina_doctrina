@@ -8,9 +8,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import label_binarize
 from gensim.models.word2vec import Word2Vec
 from keras.models import Sequential, Model
-from keras.layers import Dense, Dropout, Input, LSTM, Embedding, Bidirectional, Flatten
+from keras.layers import Dense, Dropout, Input, Activation, LSTM
 from keras.layers import Conv1D, MaxPooling1D, GlobalMaxPooling1D
-from keras.optimizers import SGD
+from keras import optimizers
 
 import spacy
 import string
@@ -145,31 +145,35 @@ def main():
 	print("Train word vector shape:", train_vec.shape)
 
 	# Transform labels into one hot encoded format.
-	#y_train_ohe = label_binarize(train['author'], classes=['EAP', 'HPL', 'MWS'])
-	y_train_ohe = mlp_train[['EAP', 'HPL', 'MWS']]
+	y_train_ohe = label_binarize(mlp_train['author'], classes=['EAP', 'HPL', 'MWS'])
+	#y_train_ohe = mlp_train[['EAP', 'HPL', 'MWS']]
 	print('y_train_ohe shape: {}'.format(y_train_ohe.shape))
 	print('y_train_ohe samples:')
 	print(y_train_ohe[:5])
 
 	# If using spaCy word vectors
-	X_train, X_test, y_train, y_test = train_test_split(train_vec, y_train_ohe, test_size=0.2, random_state=21)
+	X_train, X_val, y_train, y_val = train_test_split(train_vec, y_train_ohe, test_size=0.2, random_state=21)
+	X_test = test_vec
 	# If using Word2Vec word vectors
 	#X_train, X_test, y_train, y_test = train_test_split(train_cleaned_vec, y_train_ohe, test_size=0.2, random_state=21)
 
 	print('X_train size: {}'.format(X_train.shape))
-	print('X_test size: {}'.format(X_test.shape))
+	print('X_val size: {}'.format(X_val.shape))
 	print('y_train size: {}'.format(y_train.shape))
-	print('y_test size: {}'.format(y_test.shape))
+	print('y_val size: {}'.format(y_val.shape))
 
     # Define number of epochs
-	epochs = 50
+	epochs = 30
+	all_scores = dict()
+	errors = dict()
+
 	for l in layers:
 		for u in units:
 			for d in dropout:
 				for lr in learning_rates:
 					model = Sequential()
-					model.add(Dense(units=u, input_shape=text_dim))
-					model.add(Activation(a))
+					model.add(Dense(units=u, input_shape=(text_dim,)))
+					model.add(Activation('relu'))
 
 					if (d==0):
 						for i in range(l-1):
@@ -187,25 +191,16 @@ def main():
 
 					sgd = optimizers.SGD(lr=lr)
                         
-					model.compile(loss='categorical_crossentropy', optimizer=opt)
-					history = model.fit(X_train, t_train, epochs=epochs, \
-                            batch_size=batch_size)
+					model.compile(loss='categorical_crossentropy', optimizer=sgd)
+					history = model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=epochs)
 					errors[lr] = history
-					score = model.evaluate(X_test, t_test)
-					s = 'layers=' + str(l) + ', activation=' + str(a) + ', node number =' + str(u) + \
-                            ', dropout=' + str(d) + ', optimizer=' + str(opt) + ', lr='+str(lr)
+					#score = model.evaluate(X_val, y_val)
+					score = log_loss(y_val, model.predict(X_val))
+					print(score)
+					s = 'layers=' + str(l) + ', node number =' + str(u) + \
+                            ', dropout=' + str(d) + ', lr='+str(lr)
 					all_scores[s] = score
 
-            # # Plot error over epochs
-            # plt.figure(10)
-            # plt.rcParams.update({'font.size': 15})
-            # for lr in learning_rates:
-            #     plt.plot(errors[lr].history['loss'], label='loss lr={}'.format(lr))
-            # plt.ylabel('Loss')
-            # plt.title('Training with Layers={} and Activations = {}'.format(l, a))
-            # plt.xlabel('Epoch')
-            # plt.legend()
-            # plt.show()
 	sorted_scores = OrderedDict(sorted(all_scores.items(), key=lambda x: x[1]))
 	for k, v in sorted_scores.items():
 		print ("%s: %s" % (k, v))
